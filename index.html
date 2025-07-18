@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NeoOrb Profile Designer</title>
+    <title>NeoOrb Offline Profile Designer</title>
     <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="favicon.ico" />
+    <meta name="theme-color" content="#1e1e2f" />
     <style>
         /* ============= Global Styles ============= */
         :root {
@@ -370,6 +372,7 @@
                 <div class="config-column">
                     <h4><i class="fa-solid fa-font"></i> Aktion</h4>
                     <div class="form-group"><label>Typ:</label><select id="action-type-select"><option value="shortcut">Tastenkombination</option><option value="macro">Text-Makro</option></select></div>
+                    <div class="form-group"><label>Label (sichtbar auf Taste):</label><input type="text" id="key-label-input" placeholder="z. B. PW"></div>
                     <div class="form-group" id="action-wrapper-shortcut"><label>Taste:</label><select id="key-shortcut-select"><optgroup label="..."></optgroup></select></div>
                     <div class="form-group" id="action-wrapper-macro"><label>Text:</label><textarea id="key-macro-input"></textarea></div>
                     <div class="form-group" id="modifier-wrapper"><label>Modifier:</label><div class="checkbox-group"><input type="checkbox" id="mod-ctrl" value="1"><label for="mod-ctrl">STRG</label><input type="checkbox" id="mod-shift" value="2"><label for="mod-shift">SHIFT</label><input type="checkbox" id="mod-alt" value="4"><label for="mod-alt">ALT</label><input type="checkbox" id="mod-gui" value="8"><label for="mod-gui">GUI</label></div></div>
@@ -586,13 +589,16 @@
             el.style.color = getTextColor(col);
             let lbl = cfg.action;
             if (typeof lbl === 'string' && lbl.startsWith('{')) lbl = lbl.replace(/[{}]/g, '');
-            el.innerHTML = `<span>${lbl || ''}</span>`;
+            const label = cfg.label || '';
+            el.innerHTML = `<span>${label}</span>`;
+            
         }
 
         function openKeyModal(id) {
             currentlyEditingKeyId = id;
             modalTitle.textContent = `Taste ${id + 1} konfigurieren`;
             const cfg = keyConfigs[id] || {};
+            document.getElementById('key-label-input').value = cfg.label || '';
             const act = cfg.action || '', mod = cfg.modifier || 0;
             document.querySelectorAll('#modifier-wrapper input').forEach(cb => cb.checked = (mod & parseInt(cb.value)) !== 0);
             if ((typeof act === 'string' && act.length === 1 && mod > 0) || (typeof act === 'string' && act.startsWith('{'))) {
@@ -604,6 +610,7 @@
         }
         
         function saveKeyConfig() {
+            const label = document.getElementById('key-label-input').value.trim();
             if (currentlyEditingKeyId === null) return;
             let action, modifier = 0;
             if (actionTypeSelect.value === 'shortcut') {
@@ -612,8 +619,13 @@
             } else {
                 action = macroInput.value;
             }
-            keyConfigs[currentlyEditingKeyId] = { id: currentlyEditingKeyId, action, modifier, color: colorInput.value };
-            
+            keyConfigs[currentlyEditingKeyId] = {
+                id: currentlyEditingKeyId,
+                label,
+                action,
+                modifier,
+                color: colorInput.value
+            };            
             saveEditorToProfile();
             renderKeypad();
             closeModal(keyModal);
@@ -745,7 +757,9 @@
         populateIconPicker();
         // PWA registration
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('service-worker.js').then(() => console.log('ServiceWorker registered.')).catch(err => console.error('SW registration failed:', err));
+        navigator.serviceWorker.register('service-worker.js')
+            .then(() => console.log('✅ Service Worker aktiv'))
+            .catch(err => console.error('❌ SW Fehler:', err));
         }
     });
     </script>
