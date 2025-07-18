@@ -1,16 +1,16 @@
-const CACHE_NAME = 'neoorb-pwa-v2';
-const ASSETS = ['.', 'index.html'];
+const CACHE_NAME = 'neoOrb-v1';
+const FILES_TO_CACHE = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/favicon.ico',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/js/all.min.js'
+];
 
-self.addEventListener('install', evt => {
-  evt.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)));
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(FILES_TO_CACHE)));
 });
 
-self.addEventListener('activate', evt => {
-  evt.waitUntil(caches.keys().then(keys => Promise.all(
-    keys.map(k => (k!==CACHE_NAME)?caches.delete(k):null)
-  )));
-});
-
-self.addEventListener('fetch', evt => {
-  evt.respondWith(caches.match(evt.request).then(r => r||fetch(evt.request)));
+self.addEventListener('fetch', event => {
+  event.respondWith(caches.match(event.request).then(response => response || fetch(event.request)));
 });
