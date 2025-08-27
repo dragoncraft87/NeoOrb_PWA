@@ -408,6 +408,140 @@ function initDashboardView() {
     setInterval(updateStatus, 5000);
 }
 // ================================================================
+// File Manager Logik
+// ================================================================
+
+function initFilesPage() {
+    console.log("Dateimanager-Seite initialisiert");
+    
+    const fileListBody = document.getElementById('file-list-body');
+    const currentPathSpan = document.getElementById('current-path');
+    const uploadForm = document.getElementById('upload-form');
+    const uploadStatus = document.getElementById('upload-status');
+    const filePathInput = document.getElementById('file-path');
+
+    // Helferfunktion zum Formatieren von Bytes in KB/MB
+    function formatBytes(bytes, decimals = 2) {
+        if (!bytes || bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+
+    // Helferfunktion zum Formatieren des Unix-Timestamps
+    function formatTimestamp(timestamp) {
+        if (!timestamp || timestamp === 0) return '-';
+        const date = new Date(timestamp * 1000); // JS erwartet Millisekunden
+        return date.toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
+    }
+
+    async function loadAndRenderFiles(path) {
+        currentPathSpan.textContent = path;
+        filePathInput.value = path;
+        fileListBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Lade Dateiliste...</td></tr>';
+
+        try {
+            const response = await fetch(`/api/list-files?path=${encodeURIComponent(path)}`);
+            if (!response.ok) throw new Error(`Serverfehler: ${response.status}`);
+            
+            const files = await response.json();
+            fileListBody.innerHTML = ''; // Leere den Tabellenkörper
+
+            // "Zurück"-Button als erste Zeile hinzufügen
+            if (path !== '/') {
+                const parentPath = path.substring(0, path.lastIndexOf('/', path.length - 2) + 1) || '/';
+                const row = fileListBody.insertRow();
+                row.className = 'directory-item';
+                row.innerHTML = `<td><i class="fa-solid fa-arrow-left"></i></td><td colspan="4" class="col-name"><span>Übergeordneter Ordner</span></td>`;
+                row.querySelector('span').addEventListener('click', () => loadAndRenderFiles(parentPath));
+            }
+
+            // Sortieren: Ordner zuerst, dann alphabetisch
+            files.sort((a, b) => {
+                if (a.type === 'directory' && b.type !== 'directory') return -1;
+                if (a.type !== 'directory' && b.type === 'directory') return 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            if (files.length === 0 && fileListBody.innerHTML === '') {
+                 fileListBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Dieser Ordner ist leer.</td></tr>';
+            }
+
+            // Für jede Datei eine Tabellenzeile erstellen
+            files.forEach(file => {
+                const row = fileListBody.insertRow();
+                row.className = file.type === 'directory' ? 'directory-item' : 'file-item';
+                const icon = file.type === 'directory' ? 'fa-folder' : 'fa-file';
+                const fullPath = path + file.name;
+                const downloadBtn = file.type !== 'directory' ? `<a class="download-btn" title="Herunterladen" href="${fullPath}" download><i class="fa-solid fa-download"></i></a>` : '';
+                const deleteBtn = `<button class="delete-btn" title="Löschen" data-path="${fullPath}"><i class="fa-solid fa-trash"></i></button>`;
+                
+                row.innerHTML = `
+                    <td class="col-icon"><i class="fa-solid ${icon}"></i></td>
+                    <td class="col-name"><span>${file.name}</span></td>
+                    <td class="col-size">${file.type === 'directory' ? '-' : formatBytes(file.size)}</td>
+                    <td class="col-modified">${formatTimestamp(file.modified)}</td>
+                    <td class="col-actions"><div class="file-actions">${downloadBtn}${deleteBtn}</div></td>
+                `;
+                
+                if (file.type === 'directory') {
+                    row.querySelector('span').addEventListener('click', () => loadAndRenderFiles(`${path}${file.name}/`));
+                }
+                
+                row.querySelector('.delete-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteFile(e.currentTarget.dataset.path, path);
+                });
+            });
+
+        } catch (error) {
+            console.error("Fehler beim Laden der Dateiliste:", error);
+            fileListBody.innerHTML = `<tr><td colspan="5" style="color:red; text-align: center;">Fehler: ${error.message}</td></tr>`;
+        }
+    }
+
+    async function deleteFile(filePath, currentDir) {
+        if (!confirm(`Soll "${filePath}" wirklich gelöscht werden?`)) return;
+        try {
+            const response = await fetch('/api/delete-file', { method: 'POST', body: `/sdcard${filePath}` });
+            if (!response.ok) throw new Error("Löschen fehlgeschlagen");
+            alert("Erfolgreich gelöscht.");
+            loadAndRenderFiles(currentDir);
+        } catch (error) {
+            alert(`Fehler: ${error.message}`);
+        }
+    }
+
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const filePath = filePathInput.value;
+        const fileInput = document.getElementById('file-upload');
+        const file = fileInput.files[0];
+        if (!file) {
+            uploadStatus.textContent = 'Bitte eine Datei auswählen!';
+            return;
+        }
+        uploadStatus.textContent = `Lade ${file.name} hoch...`;
+        try {
+            const response = await fetch('/upload', { method: 'POST', headers: { 'File-Name': file.name, 'File-Path': filePath }, body: file });
+            if (response.ok) {
+                uploadStatus.textContent = `Datei ${file.name} erfolgreich hochgeladen!`;
+                loadAndRenderFiles(filePath);
+            } else {
+                throw new Error(`Serverfehler: ${response.status}`);
+            }
+        } catch (error) {
+            console.error('Upload-Fehler:', error);
+            uploadStatus.textContent = 'Upload fehlgeschlagen!';
+        }
+    });
+
+    loadAndRenderFiles('/');
+}
+
+// ================================================================
 // HAUPT-LOGIK DER NEUEN APP (Dein bisheriger Code)
 // ================================================================
 // Wir warten, bis die Seite komplett geladen ist, bevor wir unser Skript ausführen.
@@ -454,147 +588,90 @@ document.addEventListener('DOMContentLoaded', () => {
         connect: `
             <div class="card">
                 <h2>Verbindung wird hergestellt...</h2>
-                <p>Hier kommt die Logik für den Verbindungsaufbau.</p>
+                <p>Bitte einen Moment Geduld.</p>
             </div>
         `,
         profiles: `
-            <!-- START: Overview Page -->
-            <main id="overview-page">
-                <h1 class="page-title">Meine Profile</h1>
-                <div class="profiles-grid" id="profiles-grid"></div>
-                <div class="action-buttons">
-                    <button id="import-btn" class="primary-button"><i class="fa-solid fa-file-import"></i> Profil importieren</button>
-                </div>
-            </main>
-
-            <!-- START: Editor Page (initially hidden) -->
-            <main id="editor-page" class="modal-hidden">
-                <h1 class="page-title">Profil bearbeiten</h1>
-                <section id="profile-section" class="card">
-                    <h2><i class="fa-solid fa-id-card"></i> Profileigenschaften</h2>
-                    <div class="profile-controls">
-                        <div class="form-group">
-                            <label>Profil-Slot:</label>
-                            <input type="number" id="profile-id-input" value="1" min="1" max="4" disabled>
-                        </div>
-                        <div class="form-group">
-                            <label>Profilname:</label>
-                            <input type="text" id="profile-name-input" value="Mein neues Profil">
-                        </div>
-                        <button id="change-icon-btn"><i class="fa-solid fa-icons"></i> Icon ändern</button>
-                        <button id="export-current-profile-btn" class="primary-button"><i class="fa-solid fa-file-export"></i> Aktuelles Profil exportieren</button>
-                    </div>
-                    <div class="form-group">
-                        <p>Gewähltes Icon: <span id="current-icon-display"></span></p>
-                    </div>
-                </section>
-                <section id="keypad-section" class="card">
-                    <h2><i class="fa-solid fa-keyboard"></i> Tastenbelegung</h2>
-                    <div id="keypad-grid"></div>
-                </section>
-                <div class="action-buttons">
-                    <button id="back-to-overview-btn" class="secondary-button"><i class="fa-solid fa-arrow-left"></i> Zurück zur Übersicht</button>
-                </div>
-            </main>
-
-            <footer><p>Ein Werkzeug für den NeoOrb</p></footer>
-        </div>
-
-        <!-- All Modals -->
-        <div id="key-config-modal" class="modal modal-hidden">
-            <div class="modal-content">
-                <span class="close-button">&times;</span>
-                <h3 id="modal-title">Taste konfigurieren</h3>
-                <div class="config-grid">
-                    <div class="config-column">
-                        <h4><i class="fa-solid fa-font"></i> Aktion</h4>
-                        <div class="form-group"><label>Typ:</label><select id="action-type-select"><option value="shortcut">Tastenkombination</option><option value="macro">Text-Makro</option></select></div>
-                        <div class="form-group"><label>Label (sichtbar auf Taste):</label><input type="text" id="key-label-input" placeholder="z. B. PW"></div>
-                        <div class="form-group" id="action-wrapper-shortcut"><label>Taste:</label><select id="key-shortcut-select"><optgroup label="..."></optgroup></select></div>
-                        <div class="form-group" id="action-wrapper-macro"><label>Text:</label><textarea id="key-macro-input"></textarea></div>
-                        <div class="form-group" id="modifier-wrapper"><label>Modifier:</label><div class="checkbox-group"><input type="checkbox" id="mod-ctrl" value="1"><label for="mod-ctrl">STRG</label><input type="checkbox" id="mod-shift" value="2"><label for="mod-shift">SHIFT</label><input type="checkbox" id="mod-alt" value="4"><label for="mod-alt">ALT</label><input type="checkbox" id="mod-gui" value="8"><label for="mod-gui">GUI</label></div></div>
-                    </div>
-                    <div class="config-column">
-                        <h4><i class="fa-solid fa-lightbulb"></i> LED Farbe</h4>
-                        <div class="form-group"><input type="color" id="color-input" value="#5d5fef"></div>
-                    </div>
-                </div>
-                <div class="modal-actions">
-                    <button id="modal-save-btn" class="primary-button">Speichern</button>
-                    <button id="modal-cancel-btn" class="secondary-button">Abbrechen</button>
-                </div>
-            </div>
-        </div>
-        <div id="icon-picker-modal" class="modal modal-hidden">
-            <div class="modal-content">
-                <span class="close-button">&times;</span>
-                <h3>Icon wählen</h3>
-                <div id="icon-grid"></div>
-            </div>
-        </div>
-        <div id="import-modal" class="modal modal-hidden">
-            <div class="modal-content">
-                <span class="close-button">&times;</span>
-                <h3>Profil importieren</h3>
-                <p>Eine importierte Profildatei wird einen der 4 Slots überschreiben.</p>
-                <div id="compare-area">
-                    <div><h4>Vorhandenes Profil</h4><div id="existing-profile-display"></div></div>
-                    <div><h4>Importiertes Profil</h4><div id="imported-profile-display"></div></div>
-                </div>
-                <div class="form-group">
-                    <label>Ziel-Slot wählen:</label>
-                    <select id="target-id-select"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
-                </div>
-                <div class="form-group">
-                    <label class="checkbox-group">
-                        <input type="checkbox" id="backup-before-import" checked>
-                        <span>Bestehendes Profil sichern?</span>
-                    </label>
-                </div>
-                <div class="modal-actions">
-                    <button id="confirm-import-btn" class="primary-button">Importieren & Überschreiben</button>
-                    <button id="cancel-import-btn" class="secondary-button">Abbrechen</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Hidden file input for import -->
-        <input type="file" id="import-file-input" accept=".json" style="display:none" />
-        `,
+            `,
         dashboard: `
-        <section id="status-section" class="card">
-            <h2><i class="fa-solid fa-heart-pulse"></i> Live Status</h2>
-            <div class="status-grid">
-                <div class="status-item">
-                    <i class="fa-solid fa-microchip"></i>
-                    <div><span>Firmware</span><strong id="fw-version">...</strong></div>
+            <section id="status-section" class="card">
+                <h2><i class="fa-solid fa-heart-pulse"></i> Live Status</h2>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <i class="fa-solid fa-microchip"></i>
+                        <div><span>Firmware</span><strong id="fw-version">...</strong></div>
+                    </div>
+                    <div class="status-item">
+                        <i class="fa-brands fa-bluetooth-b"></i>
+                        <div><span>Bluetooth</span><strong id="bt-status">...</strong></div>
+                    </div>
+                    <div class="status-item">
+                        <i class="fa-solid fa-battery-full"></i>
+                        <div><span>Akku</span><strong id="soc-status">...</strong></div>
+                    </div>
+                    <div class="status-item">
+                        <i class="fa-solid fa-sd-card"></i>
+                        <div><span>SD-Karte</span><strong id="sd-status">...</strong></div>
+                    </div>
                 </div>
-                <div class="status-item">
-                    <i class="fa-brands fa-bluetooth-b"></i>
-                    <div><span>Bluetooth</span><strong id="bt-status">...</strong></div>
-                </div>
-                <div class="status-item">
-                    <i class="fa-solid fa-battery-full"></i>
-                    <div><span>Akku</span><strong id="soc-status">...</strong></div>
-                </div>
-                <div class="status-item">
-                    <i class="fa-solid fa-sd-card"></i>
-                    <div><span>SD-Karte</span><strong id="sd-status">...</strong></div>
-                </div>
-            </div>
-        </section>
-        
-        <section id="preview-section" class="card">
-            <h2><i class="fa-solid fa-display"></i> Display Vorschau</h2>
-            <p>Hier könnte die Live-Vorschau des Displays hin.</p>
-        </section>
+            </section>
+            
+            <section id="online-actions" class="card">
+                <h2><i class="fa-solid fa-screwdriver-wrench"></i> Geräte-Management</h2>
+                <div class="action-buttons">
+                    <a href="#/files" class="primary-button"><i class="fa-solid fa-folder-open"></i> Dateimanager</a>
+                    </div>
+            </section>
         `,
-        about: `
-            <div class="card">
-                <h2>Über NeoOrb</h2>
-                <p>Hier kommt die Info-Seite hin.</p>
-            </div>
+
+        // Die Vorlage für den Dateimanager, die wir schon erstellt haben
+        files: `
+            <main class="file-manager-grid">
+                <section id="file-browser-section" class="card">
+                    <h2><i class="fa-solid fa-sd-card"></i> Dateimanager</h2>
+                    <div class="file-browser">
+                        <div class="file-path-bar">
+                            Aktueller Pfad: <strong id="current-path">/</strong>
+                        </div>
+                        <div id="file-list-container">
+                            <table class="file-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-icon"></th>
+                                        <th class="col-name">Name</th>
+                                        <th class="col-size">Größe</th>
+                                        <th class="col-modified">Geändert am</th>
+                                        <th class="col-actions">Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="file-list-body">
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+                
+                <section id="upload-section" class="card">
+                    <h2><i class="fa-solid fa-upload"></i> Datei hochladen</h2>
+                    <form id="upload-form">
+                        <p>Lade neue Versionen der Web-Dateien direkt auf die SD-Karte.</p>
+                        <div class="form-group">
+                            <label for="file-path">Zielpfad (wird aus Dateimanager übernommen):</label>
+                            <input type="text" id="file-path" value="/" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="file-upload">Datei auswählen:</label>
+                            <input type="file" id="file-upload" required>
+                        </div>
+                        <div class="form-group">
+                            <button type="submit" class="primary-button">Hochladen</button>
+                        </div>
+                        <div id="upload-status"></div>
+                    </form>
+                </section>
+            </main>
         `,
+
         faq: `
             <div class="card">
                 <h2>FAQ</h2>
@@ -608,7 +685,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `
     };
-
     // Die zentrale Router-Funktion, die die Ansichten wechselt.
     const router = () => {
         // ... der obere Teil bleibt gleich ...
@@ -629,10 +705,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (routeName === 'profiles') {
             initProfilesView();
         } else if (routeName === 'dashboard') {
-            // NEUER Teil für das Dashboard
             initDashboardView();
-        } else {
-            // Für alle anderen Seiten (home, faq etc.) den Offline-Status im Header sicherstellen
+        } else if (routeName === 'files') { 
+            initFilesPage();              
+        } else {            // Für alle anderen Seiten (home, faq etc.) den Offline-Status im Header sicherstellen
             document.getElementById('connection-status').textContent = 'Offline-Modus';
         }
     };

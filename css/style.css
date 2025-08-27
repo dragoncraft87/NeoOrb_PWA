@@ -383,3 +383,49 @@ label.checkbox-group input {
         grid-template-columns: 1fr; /* 1 Spalte auf kleineren Geräten */
     }
 }
+/* ========================================= */
+/* NEU: Stile für die Dateimanager-Tabelle   */
+/* ========================================= */
+.file-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed; /* Sorgt für gleichmäßige Spalten */
+}
+
+.file-table th {
+    text-align: left;
+    padding: 0.75rem;
+    border-bottom: 2px solid var(--border-color);
+    color: var(--text-muted);
+    font-weight: bold;
+}
+
+.file-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--card-color);
+    white-space: nowrap; /* Verhindert Zeilenumbruch in Zellen */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Fügt "..." bei zu langem Text hinzu */
+}
+
+.file-table tr:hover {
+    background-color: var(--bg-color);
+}
+
+.directory-item span {
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.directory-item span:hover, .file-item span:hover {
+    color: var(--accent-color);
+}
+
+.col-icon { width: 40px; }
+.col-name { width: auto; } /* Nimmt den restlichen Platz ein */
+.col-size, .col-modified { 
+    width: 140px; 
+    text-align: right; 
+    font-family: 'Courier New', Courier, monospace;
+}
+.col-actions { width: 80px; text-align: center; }
