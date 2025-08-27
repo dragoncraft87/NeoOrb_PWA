@@ -1,6 +1,9 @@
 // ================================================================
 // Funktion, die die gesamte Logik für den Profil-Editor enthält
 // ================================================================
+// Version der PWA
+const CURRENT_PWA_VERSION = "2.01"; // Passe das an deine aktuelle Version an
+
 function initProfilesView() {
    
     // ============= State Management =============
@@ -11,8 +14,6 @@ function initProfilesView() {
     let importedData = null;
 
     // ============= DOM Element References =============
-    // Version der PWA
-    const CURRENT_PWA_VERSION = "2.01"; // Passe das an deine aktuelle Version an
     // Pages
     const overviewPage = document.getElementById('overview-page');
     const editorPage = document.getElementById('editor-page');
@@ -654,7 +655,46 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `,
         profiles: `
-            `,
+            <main id="overview-page">
+                <h1 class="page-title">Meine Profile</h1>
+                <div class="profiles-grid" id="profiles-grid"></div>
+                <div class="action-buttons">
+                    <button id="import-btn" class="primary-button"><i class="fa-solid fa-file-import"></i> Profil importieren</button>
+                </div>
+            </main>
+            <main id="editor-page" class="modal-hidden">
+                <h1 class="page-title">Profil bearbeiten</h1>
+                <section id="profile-section" class="card">
+                    <h2><i class="fa-solid fa-id-card"></i> Profileigenschaften</h2>
+                    <div class="profile-controls">
+                        <div class="form-group">
+                            <label>Profil-Slot:</label>
+                            <input type="number" id="profile-id-input" value="1" min="1" max="4" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label>Profilname:</label>
+                            <input type="text" id="profile-name-input" value="Mein neues Profil">
+                        </div>
+                        <button id="change-icon-btn"><i class="fa-solid fa-icons"></i> Icon ändern</button>
+                        <button id="export-current-profile-btn" class="primary-button"><i class="fa-solid fa-file-export"></i> Aktuelles Profil exportieren</button>
+                    </div>
+                    <div class="form-group">
+                        <p>Gewähltes Icon: <span id="current-icon-display"></span></p>
+                    </div>
+                </section>
+                <section id="keypad-section" class="card">
+                    <h2><i class="fa-solid fa-keyboard"></i> Tastenbelegung</h2>
+                    <div id="keypad-grid"></div>
+                </section>
+                <div class="action-buttons">
+                    <button id="back-to-overview-btn" class="secondary-button"><i class="fa-solid fa-arrow-left"></i> Zurück zur Übersicht</button>
+                </div>
+            </main>
+            <div id="key-config-modal" class="modal modal-hidden"> ... </div>
+            <div id="icon-picker-modal" class="modal modal-hidden"> ... </div>
+            <div id="import-modal" class="modal modal-hidden"> ... </div>
+            <input type="file" id="import-file-input" accept=".json" style="display:none" />
+        `,
         dashboard: `
             <section id="status-section" class="card">
                 <h2><i class="fa-solid fa-heart-pulse"></i> Live Status</h2>
