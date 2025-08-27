@@ -429,3 +429,32 @@ label.checkbox-group input {
     font-family: 'Courier New', Courier, monospace;
 }
 .col-actions { width: 80px; text-align: center; }
+
+/* ========================================= */
+/* NEU: Stile für den Update-Hinweis         */
+/* ========================================= */
+.update-notification {
+    background-color: var(--card-color);
+    border: 1px solid var(--accent-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.update-notification i {
+    font-size: 1.5rem;
+    color: var(--accent-color);
+}
+
+.update-notification span {
+    flex-grow: 1;
+}
+
+.update-notification button {
+    padding: 0.5rem 1rem; /* Kleinere Buttons für den Hinweis */
+    font-size: 0.9rem;
+}

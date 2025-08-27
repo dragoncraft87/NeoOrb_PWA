@@ -11,6 +11,8 @@ function initProfilesView() {
     let importedData = null;
 
     // ============= DOM Element References =============
+    // Version der PWA
+    const CURRENT_PWA_VERSION = "2.01"; // Passe das an deine aktuelle Version an
     // Pages
     const overviewPage = document.getElementById('overview-page');
     const editorPage = document.getElementById('editor-page');
@@ -541,6 +543,66 @@ function initFilesPage() {
     loadAndRenderFiles('/');
 }
 
+// in js/app.js
+
+// NEUE FUNKTIONEN FÜR DEN UPDATE-PROZESS
+
+/**
+ * Prüft auf GitHub, ob eine neue PWA-Version verfügbar ist.
+ */
+async function checkForUpdates() {
+    console.log("Prüfe auf Updates...");
+    try {
+        // WICHTIG: Ersetze die URL mit dem RAW-Link zu deinem Manifest auf GitHub
+        const response = await fetch('https://raw.githubusercontent.com/dragoncraft87/NeoOrb_PWA/main/update-manifest.json');
+        if (!response.ok) throw new Error('Manifest nicht erreichbar');
+
+        const manifest = await response.json();
+        
+        // Vergleiche die Versionen
+        if (manifest.latest_version > CURRENT_PWA_VERSION) {
+            console.log(`Update gefunden: ${manifest.latest_version}`);
+            showUpdateNotification(manifest);
+        } else {
+            console.log("PWA ist auf dem neuesten Stand.");
+        }
+    } catch (error) {
+        // Das ist normal, wenn kein Internet da ist.
+        console.log("Keine Internetverbindung oder Fehler beim Update-Check:", error.message);
+    }
+}
+
+/**
+ * Zeigt einen dezenten Hinweis an, dass ein Update verfügbar ist.
+ * @param {object} manifest - Die geladenen Update-Informationen.
+ */
+function showUpdateNotification(manifest) {
+    // Finde den Header, um den Hinweis dort einzufügen
+    const header = document.querySelector('header');
+    if (!header) return;
+
+    // Verhindere, dass mehrere Hinweise angezeigt werden
+    if (document.getElementById('update-notification')) return;
+
+    const notification = document.createElement('div');
+    notification.id = 'update-notification';
+    notification.className = 'update-notification';
+    notification.innerHTML = `
+        <i class="fa-solid fa-cloud-arrow-down"></i>
+        <span>Ein neues Update (v${manifest.latest_version}) ist verfügbar.</span>
+        <button id="download-update-btn" class="primary-button">Herunterladen</button>
+    `;
+    
+    // Füge den Hinweis unter dem Header ein
+    header.parentNode.insertBefore(notification, header.nextSibling);
+
+    // Füge einen Event Listener für den Download-Button hinzu
+    document.getElementById('download-update-btn').addEventListener('click', () => {
+        alert(`Starte Download für Version ${manifest.latest_version}...\n\nRelease Notes: ${manifest.release_notes}`);
+        // HIER kommt im nächsten Schritt die Logik zum Herunterladen der ZIP-Datei hin.
+    });
+}
+
 // ================================================================
 // HAUPT-LOGIK DER NEUEN APP (Dein bisheriger Code)
 // ================================================================
@@ -718,4 +780,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 2. 'load': Wird ausgelöst, wenn die Seite zum allerersten Mal geladen wird.
     window.addEventListener('load', router);
+
+    // NEU: Rufe die Update-Prüfung beim Start auf
+    checkForUpdates();
 });
